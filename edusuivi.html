@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#14342b">
+<title>Edusuivi Guinée</title>
+<style>
+  :root {
+    --ardoise: #14342b; --craie: #f7f5ee; --encre: #1b2421;
+    --crayon: #e8b630; --gris: #5d6b66; --erreur: #b3261e; --bord: #cfd6d2;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: Georgia, "Times New Roman", serif; background: var(--ardoise); color: var(--encre); display: flex; flex-direction: column; }
+  header { padding: 2.5rem 1.5rem 2rem; color: var(--craie); }
+  header h1 { margin: 0; font-size: clamp(2rem, 9vw, 3rem); letter-spacing: -0.02em; }
+  header p { margin: .5rem 0 0; font-family: system-ui, sans-serif; opacity: .85; border-left: 4px solid var(--crayon); padding-left: .75rem; }
+  main { flex: 1; background: var(--craie); border-radius: 1.5rem 1.5rem 0 0; padding: 2rem 1.5rem 3rem; font-family: system-ui, sans-serif; }
+  .bloc { max-width: 26rem; margin: 0 auto; }
+  h2 { font-family: Georgia, serif; margin: 0 0 1.25rem; font-size: 1.4rem; }
+  label { display: block; font-weight: 600; margin: 1rem 0 .35rem; }
+  input { width: 100%; font-size: 1rem; padding: .8rem .9rem; border: 1.5px solid var(--bord); border-radius: .5rem; background: #fff; color: var(--encre); }
+  input:focus-visible, button:focus-visible { outline: 3px solid var(--crayon); outline-offset: 2px; }
+  button { width: 100%; margin-top: 1.5rem; padding: .95rem; font-size: 1.05rem; font-weight: 700; border: 0; border-radius: .5rem; background: var(--ardoise); color: var(--craie); cursor: pointer; }
+  button:disabled { opacity: .6; cursor: wait; }
+  button.secondaire { background: transparent; color: var(--ardoise); border: 1.5px solid var(--ardoise); }
+  #erreur { min-height: 1.4rem; margin-top: 1rem; color: var(--erreur); font-weight: 600; }
+  .aide { margin-top: 1.5rem; color: var(--gris); font-size: .9rem; }
+  .carte { background: #fff; border: 1.5px solid var(--bord); border-radius: .75rem; padding: 1.25rem; }
+  .carte dt { color: var(--gris); font-size: .85rem; margin-top: .75rem; }
+  .carte dt:first-child { margin-top: 0; }
+  .carte dd { margin: .15rem 0 0; font-size: 1.1rem; font-weight: 600; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Edusuivi Guinée</h1>
+  <p>Suivi des élèves et des enseignants</p>
+</header>
+
+<main>
+  <!-- Écran de connexion -->
+  <form id="connexion" class="bloc" novalidate>
+    <h2>Se connecter</h2>
+    <label for="email">Adresse e-mail</label>
+    <input id="email" type="email" autocomplete="username" inputmode="email" required>
+    <label for="mdp">Mot de passe</label>
+    <input id="mdp" type="password" autocomplete="current-password" required>
+    <button id="bouton" type="submit">Se connecter</button>
+    <p id="erreur" role="alert"></p>
+    <p class="aide">Pas de compte ? Demande à la direction de l'école de t'en créer un.</p>
+  </form>
+
+  <!-- Écran après connexion -->
+  <section id="accueil" class="bloc" hidden>
+    <h2>Connexion réussie</h2>
+    <dl class="carte">
+      <dt>Nom</dt><dd id="v-nom">-</dd>
+      <dt>Rôle</dt><dd id="v-role">-</dd>
+      <dt>École</dt><dd id="v-ecole">-</dd>
+    </dl>
+    <p class="aide">Les classes, les élèves, les présences et les notes arrivent dans les prochaines étapes.</p>
+    <button id="deconnexion" class="secondaire" type="button">Se déconnecter</button>
+  </section>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { initializeFirestore, doc, getDoc }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCyGS7yvYYuwbvB4UZs3WNsu9QO_FNXnJg",
+  authDomain: "edusuivi-guinee.firebaseapp.com",
+  projectId: "edusuivi-guinee",
+  storageBucket: "edusuivi-guinee.firebasestorage.app",
+  messagingSenderId: "5327044580",
+  appId: "1:5327044580:web:20ac3db29f8babd5b3d1f1"
+});
+const auth = getAuth(app);
+const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
+
+const $ = (id) => document.getElementById(id);
+
+const MESSAGES = {
+  "auth/invalid-credential": "E-mail ou mot de passe incorrect.",
+  "auth/user-not-found": "Aucun compte avec cet e-mail.",
+  "auth/wrong-password": "Mot de passe incorrect.",
+  "auth/too-many-requests": "Trop de tentatives. Réessaie dans quelques minutes.",
+  "auth/network-request-failed": "Pas de connexion internet. Vérifie ton réseau et réessaie.",
+  "auth/unauthorized-domain": "Ce site n'est pas autorisé dans Firebase (Authentication > Paramètres > Domaines autorisés).",
+  "permission-denied": "Accès refusé par les règles de sécurité Firestore.",
+  "unavailable": "Firestore est injoignable. Vérifie ta connexion internet."
+};
+const texteErreur = (e) => MESSAGES[e.code] || (e.code ? e.code + " : " : "") + e.message;
+
+function avecDelai(promesse, secondes, etape) {
+  return Promise.race([
+    promesse,
+    new Promise((_, rejeter) => setTimeout(
+      () => rejeter(new Error("Délai dépassé à l'étape : " + etape + ". Vérifie ta connexion internet.")),
+      secondes * 1000))
+  ]);
+}
+
+async function chargerProfil(uid) {
+  const snap = await getDoc(doc(db, "utilisateurs", uid));
+  return snap.exists() ? { uid, ...snap.data() } : null;
+}
+
+function afficherAccueil(profil) {
+  $("v-nom").textContent = profil.nom || "(non renseigné)";
+  $("v-role").textContent = profil.role || "-";
+  $("v-ecole").textContent = profil.ecoleId || "-";
+  $("connexion").hidden = true;
+  $("accueil").hidden = false;
+}
+
+function afficherConnexion() {
+  $("accueil").hidden = true;
+  $("connexion").hidden = false;
+  $("bouton").disabled = false;
+  $("bouton").textContent = "Se connecter";
+}
+
+$("connexion").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("erreur").textContent = "";
+  const email = $("email").value.trim();
+  const mdp = $("mdp").value;
+  if (!email || !mdp) { $("erreur").textContent = "Saisis ton e-mail et ton mot de passe."; return; }
+  $("bouton").disabled = true;
+  $("bouton").textContent = "Connexion en cours…";
+  try {
+    let cred;
+    try {
+      cred = await avecDelai(signInWithEmailAndPassword(auth, email, mdp), 20, "connexion (Authentication)");
+    } catch (err) { throw new Error(texteErreur(err)); }
+
+    let profil;
+    try {
+      profil = await avecDelai(chargerProfil(cred.user.uid), 20, "lecture du profil (Firestore)");
+    } catch (err) { await signOut(auth); throw new Error(texteErreur(err)); }
+
+    if (!profil) {
+      await signOut(auth);
+      throw new Error("Profil introuvable : le document utilisateurs/" + cred.user.uid + " n'existe pas dans Firestore.");
+    }
+    if (profil.actif === false) {
+      await signOut(auth);
+      throw new Error("Ce compte n'est pas activé. Contacte la direction.");
+    }
+    afficherAccueil(profil);
+  } catch (err) {
+    $("erreur").textContent = err.message;
+    $("bouton").disabled = false;
+    $("bouton").textContent = "Se connecter";
+  }
+});
+
+$("deconnexion").addEventListener("click", async () => {
+  await signOut(auth);
+  afficherConnexion();
+});
+
+// Reprend la session si la personne est déjà connectée
+onAuthStateChanged(auth, async (user) => {
+  if (!user || !$("accueil").hidden) return;
+  try {
+    const profil = await avecDelai(chargerProfil(user.uid), 20, "lecture du profil (Firestore)");
+    if (profil && profil.actif !== false) afficherAccueil(profil);
+  } catch (err) { /* on reste sur l'écran de connexion */ }
+});
+</script>
+</body>
+</html>
