@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#14342b">
+<title>Edusuivi Guinée</title>
+<style>
+  :root { --ardoise:#14342b; --craie:#f7f5ee; --encre:#1b2421; --crayon:#e8b630; --gris:#5d6b66; --erreur:#b3261e; --bord:#cfd6d2; }
+  * { box-sizing: border-box; }
+  html, body { min-height: 100%; margin: 0; }
+  body { font-family: Georgia, "Times New Roman", serif; background: var(--ardoise); color: var(--encre); display: flex; flex-direction: column; min-height: 100vh; }
+  header { padding: 1.75rem 1.5rem 1.5rem; color: var(--craie); }
+  header h1 { margin: 0; font-size: clamp(1.8rem, 8vw, 2.6rem); letter-spacing: -0.02em; }
+  header p { margin: .4rem 0 0; font-family: system-ui, sans-serif; opacity: .85; border-left: 4px solid var(--crayon); padding-left: .75rem; }
+  main { flex: 1; background: var(--craie); border-radius: 1.5rem 1.5rem 0 0; padding: 1.5rem 1.25rem 3rem; font-family: system-ui, sans-serif; }
+  .bloc { max-width: 30rem; margin: 0 auto; }
+  h2 { font-family: Georgia, serif; margin: 0 0 1rem; font-size: 1.35rem; }
+  label { display: block; font-weight: 600; margin: .9rem 0 .3rem; }
+  input, select { width: 100%; font-size: 1rem; padding: .75rem .85rem; border: 1.5px solid var(--bord); border-radius: .5rem; background: #fff; color: var(--encre); }
+  input:focus-visible, select:focus-visible, button:focus-visible { outline: 3px solid var(--crayon); outline-offset: 2px; }
+  button { width: 100%; margin-top: 1.25rem; padding: .9rem; font-size: 1.02rem; font-weight: 700; border: 0; border-radius: .5rem; background: var(--ardoise); color: var(--craie); cursor: pointer; }
+  button:disabled { opacity: .6; cursor: wait; }
+  button.secondaire { background: transparent; color: var(--ardoise); border: 1.5px solid var(--ardoise); }
+  .message { min-height: 1.3rem; margin-top: .8rem; font-weight: 600; }
+  .message.erreur { color: var(--erreur); }
+  .message.ok { color: #1f6b3a; }
+  .aide { margin-top: 1.2rem; color: var(--gris); font-size: .9rem; }
+  .barre { display: flex; justify-content: space-between; align-items: center; gap: .75rem; margin-bottom: 1rem; }
+  .barre strong { display: block; font-size: 1.05rem; }
+  .barre small { color: var(--gris); }
+  .barre button { width: auto; margin: 0; padding: .55rem .9rem; font-size: .9rem; }
+  .onglets { display: flex; gap: .5rem; margin-bottom: 1rem; }
+  .onglets button { margin: 0; background: transparent; color: var(--ardoise); border: 1.5px solid var(--ardoise); }
+  .onglets button.actif { background: var(--ardoise); color: var(--craie); }
+  .carte { background: #fff; border: 1.5px solid var(--bord); border-radius: .75rem; padding: 1rem 1.1rem; margin-top: 1rem; }
+  .liste { list-style: none; padding: 0; margin: 1rem 0 0; }
+  .liste li { background: #fff; border: 1.5px solid var(--bord); border-radius: .65rem; padding: .8rem 1rem; margin-bottom: .6rem; }
+  .liste .titre { font-weight: 700; }
+  .liste .detail { color: var(--gris); font-size: .9rem; margin-top: .15rem; }
+  .vide { color: var(--gris); font-style: italic; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Edusuivi Guinée</h1>
+  <p>Suivi des élèves et des enseignants</p>
+</header>
+
+<main>
+  <!-- Connexion -->
+  <form id="connexion" class="bloc" novalidate>
+    <h2>Se connecter</h2>
+    <label for="email">Adresse e-mail</label>
+    <input id="email" type="email" autocomplete="username" inputmode="email" required>
+    <label for="mdp">Mot de passe</label>
+    <input id="mdp" type="password" autocomplete="current-password" required>
+    <button id="bouton" type="submit">Se connecter</button>
+    <p id="erreur" class="message erreur" role="alert"></p>
+    <p class="aide">Pas de compte ? Demande à la direction de l’école de t’en créer un.</p>
+  </form>
+
+  <!-- Application -->
+  <section id="app" class="bloc" hidden>
+    <div class="barre">
+      <div><strong id="v-nom">-</strong><small id="v-role">-</small></div>
+      <button id="deconnexion" class="secondaire" type="button">Quitter</button>
+    </div>
+
+    <div class="onglets">
+      <button id="onglet-classes" class="actif" type="button">Classes</button>
+      <button id="onglet-eleves" type="button">Élèves</button>
+    </div>
+
+    <!-- Classes -->
+    <div id="vue-classes">
+      <form id="form-classe" class="carte" novalidate>
+        <h2>Nouvelle classe</h2>
+        <label for="c-nom">Nom de la classe</label>
+        <input id="c-nom" placeholder="Exemple : 6e A" required>
+        <label for="c-niveau">Niveau</label>
+        <select id="c-niveau">
+          <option>Maternelle</option><option>Primaire</option><option>Collège</option><option>Lycée</option>
+        </select>
+        <button type="submit">Ajouter la classe</button>
+        <p id="msg-classe" class="message" role="status"></p>
+      </form>
+      <ul id="liste-classes" class="liste"></ul>
+    </div>
+
+    <!-- Élèves -->
+    <div id="vue-eleves" hidden>
+      <form id="form-eleve" class="carte" novalidate>
+        <h2>Nouvel élève</h2>
+        <label for="e-nom">Nom</label>
+        <input id="e-nom" autocomplete="off" required>
+        <label for="e-prenom">Prénom</label>
+        <input id="e-prenom" autocomplete="off" required>
+        <label for="e-sexe">Sexe</label>
+        <select id="e-sexe"><option value="F">Fille</option><option value="M">Garçon</option></select>
+        <label for="e-naissance">Date de naissance</label>
+        <input id="e-naissance" type="date">
+        <label for="e-classe">Classe</label>
+        <select id="e-classe" required></select>
+        <label for="e-tuteur">Nom du parent ou tuteur</label>
+        <input id="e-tuteur" autocomplete="off">
+        <label for="e-tel">Téléphone du tuteur</label>
+        <input id="e-tel" type="tel" inputmode="tel" autocomplete="off">
+        <button type="submit">Ajouter l’élève</button>
+        <p id="msg-eleve" class="message" role="status"></p>
+      </form>
+
+      <label for="filtre-classe">Afficher</label>
+      <select id="filtre-classe"></select>
+      <ul id="liste-eleves" class="liste"></ul>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { initializeFirestore, doc, getDoc, collection, addDoc, getDocs, query, where, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyCyGS7yvYYuwbvB4UZs3WNsu9QO_FNXnJg",
+  authDomain: "edusuivi-guinee.firebaseapp.com",
+  projectId: "edusuivi-guinee",
+  storageBucket: "edusuivi-guinee.firebasestorage.app",
+  messagingSenderId: "5327044580",
+  appId: "1:5327044580:web:20ac3db29f8babd5b3d1f1"
+});
+const auth = getAuth(app);
+const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
+const $ = (id) => document.getElementById(id);
+
+const ECRITURE = ["directeur", "secretaire"];
+let profil = null, classes = [], eleves = [];
+
+const MESSAGES = {
+  "auth/invalid-credential": "E-mail ou mot de passe incorrect.",
+  "auth/user-not-found": "Aucun compte avec cet e-mail.",
+  "auth/wrong-password": "Mot de passe incorrect.",
+  "auth/too-many-requests": "Trop de tentatives. Réessaie dans quelques minutes.",
+  "auth/network-request-failed": "Pas de connexion internet. Vérifie ton réseau.",
+  "permission-denied": "Accès refusé par les règles de sécurité. Vérifie que les règles Firestore sont à jour.",
+  "unavailable": "Firestore est injoignable. Vérifie ta connexion."
+};
+const texteErreur = (e) => MESSAGES[e.code] || (e.code ? e.code + " : " : "") + e.message;
+
+function avecDelai(promesse, secondes, etape) {
+  return Promise.race([promesse, new Promise((_, rej) =>
+    setTimeout(() => rej(new Error("Délai dépassé à l’étape : " + etape + ". Vérifie ta connexion.")), secondes * 1000))]);
+}
+
+function message(id, texte, type) {
+  const m = $(id); m.textContent = texte; m.className = "message" + (type ? " " + type : "");
+}
+
+// ---------- Connexion ----------
+async function chargerProfil(uid) {
+  const snap = await getDoc(doc(db, "utilisateurs", uid));
+  return snap.exists() ? { uid, ...snap.data() } : null;
+}
+
+$("connexion").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  message("erreur", "", "erreur");
+  const email = $("email").value.trim(), mdp = $("mdp").value;
+  if (!email || !mdp) return message("erreur", "Saisis ton e-mail et ton mot de passe.", "erreur");
+  $("bouton").disabled = true; $("bouton").textContent = "Connexion en cours…";
+  try {
+    let cred;
+    try { cred = await avecDelai(signInWithEmailAndPassword(auth, email, mdp), 20, "connexion"); }
+    catch (err) { throw new Error(texteErreur(err)); }
+    let p;
+    try { p = await avecDelai(chargerProfil(cred.user.uid), 20, "lecture du profil"); }
+    catch (err) { await signOut(auth); throw new Error(texteErreur(err)); }
+    if (!p) { await signOut(auth); throw new Error("Profil introuvable dans Firestore."); }
+    if (p.actif === false) { await signOut(auth); throw new Error("Ce compte n’est pas activé."); }
+    await ouvrirApp(p);
+  } catch (err) {
+    message("erreur", err.message, "erreur");
+  } finally {
+    $("bouton").disabled = false; $("bouton").textContent = "Se connecter";
+  }
+});
+
+$("deconnexion").addEventListener("click", async () => {
+  await signOut(auth);
+  profil = null; classes = []; eleves = [];
+  $("app").hidden = true; $("connexion").hidden = false;
+});
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user || profil) return;
+  try {
+    const p = await avecDelai(chargerProfil(user.uid), 20, "lecture du profil");
+    if (p && p.actif !== false) await ouvrirApp(p);
+  } catch (err) { /* on reste sur la connexion */ }
+});
+
+// ---------- Application ----------
+async function ouvrirApp(p) {
+  profil = p;
+  $("v-nom").textContent = p.nom || "(sans nom)";
+  $("v-role").textContent = p.role + " · " + p.ecoleId;
+  const peutEcrire = ECRITURE.includes(p.role);
+  $("form-classe").hidden = !peutEcrire;
+  $("form-eleve").hidden = !peutEcrire;
+  $("connexion").hidden = true; $("app").hidden = false;
+  await chargerClasses();
+  await chargerEleves();
+}
+
+function montrerOnglet(nom) {
+  $("vue-classes").hidden = nom !== "classes";
+  $("vue-eleves").hidden = nom !== "eleves";
+  $("onglet-classes").classList.toggle("actif", nom === "classes");
+  $("onglet-eleves").classList.toggle("actif", nom === "eleves");
+}
+$("onglet-classes").addEventListener("click", () => montrerOnglet("classes"));
+$("onglet-eleves").addEventListener("click", () => montrerOnglet("eleves"));
+
+const lignes = (id, items, fabrique, videTexte) => {
+  const ul = $(id); ul.replaceChildren();
+  if (!items.length) { const li = document.createElement("li"); li.className = "vide"; li.textContent = videTexte; ul.append(li); return; }
+  items.forEach((x) => ul.append(fabrique(x)));
+};
+const ligne = (titre, detail) => {
+  const li = document.createElement("li");
+  const t = document.createElement("div"); t.className = "titre"; t.textContent = titre;
+  const d = document.createElement("div"); d.className = "detail"; d.textContent = detail;
+  li.append(t, d); return li;
+};
+const nomClasse = (id) => (classes.find((c) => c.id === id) || {}).nom || "(classe inconnue)";
+
+async function chargerClasses() {
+  try {
+    const s = await getDocs(query(collection(db, "classes"), where("ecoleId", "==", profil.ecoleId)));
+    classes = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
+  } catch (err) { message("msg-classe", texteErreur(err), "erreur"); classes = []; }
+  afficherClasses();
+}
+
+async function chargerEleves() {
+  try {
+    const s = await getDocs(query(collection(db, "eleves"), where("ecoleId", "==", profil.ecoleId)));
+    eleves = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.nom + a.prenom).localeCompare(b.nom + b.prenom, "fr"));
+  } catch (err) { message("msg-eleve", texteErreur(err), "erreur"); eleves = []; }
+  afficherEleves();
+}
+
+function afficherClasses() {
+  lignes("liste-classes", classes,
+    (c) => ligne(c.nom, c.niveau + " · " + eleves.filter((e) => e.classeId === c.id).length + " élève(s)"),
+    "Aucune classe pour le moment.");
+  const options = classes.map((c) => new Option(c.nom, c.id));
+  $("e-classe").replaceChildren(...(options.length ? options : [new Option("Crée d’abord une classe", "")]));
+  const filtre = $("filtre-classe"), actuel = filtre.value;
+  filtre.replaceChildren(new Option("Tous les élèves", ""), ...classes.map((c) => new Option(c.nom, c.id)));
+  filtre.value = classes.some((c) => c.id === actuel) ? actuel : "";
+}
+
+function afficherEleves() {
+  const f = $("filtre-classe").value;
+  const vus = eleves.filter((e) => !f || e.classeId === f);
+  lignes("liste-eleves", vus,
+    (e) => ligne(e.nom.toUpperCase() + " " + e.prenom, nomClasse(e.classeId) + (e.tuteurNom ? " · Tuteur : " + e.tuteurNom : "")),
+    "Aucun élève à afficher.");
+  afficherClasses();
+}
+$("filtre-classe").addEventListener("change", afficherEleves);
+
+$("form-classe").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const nom = $("c-nom").value.trim();
+  if (!nom) return message("msg-classe", "Écris le nom de la classe.", "erreur");
+  if (classes.some((c) => c.nom.toLowerCase() === nom.toLowerCase())) return message("msg-classe", "Cette classe existe déjà.", "erreur");
+  try {
+    await avecDelai(addDoc(collection(db, "classes"), {
+      nom, niveau: $("c-niveau").value, ecoleId: profil.ecoleId, creePar: profil.uid, creeLe: serverTimestamp()
+    }), 20, "enregistrement de la classe");
+    $("c-nom").value = ""; message("msg-classe", "Classe ajoutée.", "ok");
+    await chargerClasses();
+  } catch (err) { message("msg-classe", texteErreur(err), "erreur"); }
+});
+
+$("form-eleve").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const nom = $("e-nom").value.trim(), prenom = $("e-prenom").value.trim(), classeId = $("e-classe").value;
+  if (!nom || !prenom) return message("msg-eleve", "Le nom et le prénom sont obligatoires.", "erreur");
+  if (!classeId) return message("msg-eleve", "Choisis une classe (crée-en une d’abord).", "erreur");
+  try {
+    await avecDelai(addDoc(collection(db, "eleves"), {
+      nom, prenom, sexe: $("e-sexe").value, dateNaissance: $("e-naissance").value || "", classeId,
+      tuteurNom: $("e-tuteur").value.trim(), tuteurTel: $("e-tel").value.trim(),
+      statut: "actif", ecoleId: profil.ecoleId, creePar: profil.uid, creeLe: serverTimestamp()
+    }), 20, "enregistrement de l’élève");
+    ["e-nom", "e-prenom", "e-naissance", "e-tuteur", "e-tel"].forEach((id) => ($(id).value = ""));
+    message("msg-eleve", "Élève ajouté.", "ok");
+    await chargerEleves();
+  } catch (err) { message("msg-eleve", texteErreur(err), "erreur"); }
+});
+</script>
+</body>
+</html>
