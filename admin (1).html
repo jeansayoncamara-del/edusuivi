@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#14342b">
+<title>Edusuivi Guinée – Administration</title>
+<style>
+  :root { --ardoise:#14342b; --craie:#f7f5ee; --encre:#1b2421; --crayon:#e8b630; --gris:#5d6b66; --erreur:#b3261e; --bord:#cfd6d2; }
+  * { box-sizing: border-box; }
+  html, body { min-height: 100%; margin: 0; }
+  body { font-family: Georgia, "Times New Roman", serif; background: var(--ardoise); color: var(--encre); display: flex; flex-direction: column; min-height: 100vh; }
+  header { padding: 1.75rem 1.5rem 1.5rem; color: var(--craie); }
+  header h1 { margin: 0; font-size: clamp(1.7rem, 8vw, 2.4rem); letter-spacing: -0.02em; }
+  header p { margin: .4rem 0 0; font-family: system-ui, sans-serif; opacity: .85; border-left: 4px solid var(--crayon); padding-left: .75rem; }
+  main { flex: 1; background: var(--craie); border-radius: 1.5rem 1.5rem 0 0; padding: 1.5rem 1.25rem 3rem; font-family: system-ui, sans-serif; }
+  .bloc { max-width: 30rem; margin: 0 auto; }
+  h2 { font-family: Georgia, serif; margin: 0 0 1rem; font-size: 1.3rem; }
+  label { display: block; font-weight: 600; margin: .9rem 0 .3rem; }
+  input { width: 100%; font-size: 1rem; padding: .75rem .85rem; border: 1.5px solid var(--bord); border-radius: .5rem; background: #fff; color: var(--encre); }
+  input:focus-visible, button:focus-visible { outline: 3px solid var(--crayon); outline-offset: 2px; }
+  button { width: 100%; margin-top: 1.25rem; padding: .9rem; font-size: 1.02rem; font-weight: 700; border: 0; border-radius: .5rem; background: var(--ardoise); color: var(--craie); cursor: pointer; }
+  button:disabled { opacity: .6; cursor: wait; }
+  button.secondaire { background: transparent; color: var(--ardoise); border: 1.5px solid var(--ardoise); }
+  .message { min-height: 1.3rem; margin-top: .8rem; font-weight: 600; }
+  .message.erreur { color: var(--erreur); }
+  .message.ok { color: #1f6b3a; }
+  .aide { margin-top: 1rem; color: var(--gris); font-size: .9rem; }
+  .barre { display: flex; justify-content: space-between; align-items: center; gap: .75rem; margin-bottom: 1rem; }
+  .barre small { display: block; color: var(--gris); }
+  .barre button { width: auto; margin: 0; padding: .55rem .9rem; font-size: .9rem; }
+  .carte { background: #fff; border: 1.5px solid var(--bord); border-radius: .75rem; padding: 1rem 1.1rem; margin-top: 1rem; }
+  .liste { list-style: none; padding: 0; margin: 1rem 0 0; }
+  .liste li { background: #fff; border: 1.5px solid var(--bord); border-radius: .65rem; padding: .8rem 1rem; margin-bottom: .6rem; }
+  .liste .titre { font-weight: 700; }
+  .liste .detail { color: var(--gris); font-size: .88rem; margin-top: .15rem; word-break: break-all; }
+  .vide { color: var(--gris); font-style: italic; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Edusuivi Guinée</h1>
+  <p>Administration de la plateforme</p>
+</header>
+
+<main>
+  <form id="connexion" class="bloc" novalidate>
+    <h2>Se connecter</h2>
+    <label for="email">Adresse e-mail</label>
+    <input id="email" type="email" autocomplete="username" inputmode="email" required>
+    <label for="mdp">Mot de passe</label>
+    <input id="mdp" type="password" autocomplete="current-password" required>
+    <button id="bouton" type="submit">Se connecter</button>
+    <p id="erreur" class="message erreur" role="alert"></p>
+  </form>
+
+  <section id="admin" class="bloc" hidden>
+    <div class="barre">
+      <div><strong id="v-nom">-</strong><small>administrateur</small></div>
+      <button id="deconnexion" class="secondaire" type="button">Quitter</button>
+    </div>
+
+    <form id="form-ecole" class="carte" novalidate>
+      <h2>Nouvel établissement</h2>
+      <label for="s-nom">Nom de l’établissement</label>
+      <input id="s-nom" autocomplete="off" required>
+      <label for="s-ville">Ville ou localité</label>
+      <input id="s-ville" autocomplete="off">
+      <label for="d-nom">Nom du directeur</label>
+      <input id="d-nom" autocomplete="off" required>
+      <label for="d-email">E-mail du directeur</label>
+      <input id="d-email" type="email" inputmode="email" autocomplete="off" required>
+      <button id="creer" type="submit">Créer l’établissement et son compte</button>
+      <p id="msg" class="message" role="status"></p>
+      <p class="aide">Le directeur reçoit un e-mail pour choisir lui-même son mot de passe. Pense à lui dire de vérifier ses courriers indésirables.</p>
+    </form>
+
+    <ul id="liste" class="liste"></ul>
+  </section>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword, sendPasswordResetEmail }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { initializeFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+const config = {
+  apiKey: "AIzaSyCyGS7yvYYuwbvB4UZs3WNsu9QO_FNXnJg",
+  authDomain: "edusuivi-guinee.firebaseapp.com",
+  projectId: "edusuivi-guinee",
+  storageBucket: "edusuivi-guinee.firebasestorage.app",
+  messagingSenderId: "5327044580",
+  appId: "1:5327044580:web:20ac3db29f8babd5b3d1f1"
+};
+const app = initializeApp(config);
+const auth = getAuth(app);
+const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
+const $ = (id) => document.getElementById(id);
+let profil = null;
+
+const MESSAGES = {
+  "auth/invalid-credential": "E-mail ou mot de passe incorrect.",
+  "auth/too-many-requests": "Trop de tentatives. Réessaie dans quelques minutes.",
+  "auth/network-request-failed": "Pas de connexion internet.",
+  "auth/email-already-in-use": "Cette adresse e-mail a déjà un compte.",
+  "auth/invalid-email": "Adresse e-mail invalide.",
+  "permission-denied": "Accès refusé par les règles de sécurité. Vérifie que les nouvelles règles Firestore sont publiées et que ton compte a le rôle superadmin."
+};
+const texteErreur = (e) => MESSAGES[e.code] || (e.code ? e.code + " : " : "") + e.message;
+const message = (id, texte, type) => { const m = $(id); m.textContent = texte; m.className = "message" + (type ? " " + type : ""); };
+const avecDelai = (p, s, etape) => Promise.race([p, new Promise((_, rej) =>
+  setTimeout(() => rej(new Error("Délai dépassé à l’étape : " + etape + ". Vérifie ta connexion.")), s * 1000))]);
+
+const ALPHABET = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const motDePasseAleatoire = () =>
+  Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => ALPHABET[b % ALPHABET.length]).join("");
+
+async function chargerProfil(uid) {
+  const s = await getDoc(doc(db, "utilisateurs", uid));
+  return s.exists() ? { uid, ...s.data() } : null;
+}
+
+async function ouvrir(p) {
+  profil = p;
+  $("v-nom").textContent = p.nom || "(sans nom)";
+  $("connexion").hidden = true; $("admin").hidden = false;
+  await listerEcoles();
+}
+
+$("connexion").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  message("erreur", "", "erreur");
+  const email = $("email").value.trim(), mdp = $("mdp").value;
+  if (!email || !mdp) return message("erreur", "Saisis ton e-mail et ton mot de passe.", "erreur");
+  $("bouton").disabled = true; $("bouton").textContent = "Connexion en cours…";
+  try {
+    let cred;
+    try { cred = await avecDelai(signInWithEmailAndPassword(auth, email, mdp), 20, "connexion"); }
+    catch (err) { throw new Error(texteErreur(err)); }
+    const p = await avecDelai(chargerProfil(cred.user.uid), 20, "lecture du profil").catch((err) => { throw new Error(texteErreur(err)); });
+    if (!p || p.role !== "superadmin" || p.actif === false) {
+      await signOut(auth);
+      throw new Error("Cette page est réservée à l’administrateur de la plateforme.");
+    }
+    await ouvrir(p);
+  } catch (err) { message("erreur", err.message, "erreur"); }
+  finally { $("bouton").disabled = false; $("bouton").textContent = "Se connecter"; }
+});
+
+$("deconnexion").addEventListener("click", async () => {
+  await signOut(auth); profil = null;
+  $("admin").hidden = true; $("connexion").hidden = false;
+});
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user || profil) return;
+  try {
+    const p = await avecDelai(chargerProfil(user.uid), 20, "lecture du profil");
+    if (p && p.role === "superadmin" && p.actif !== false) await ouvrir(p);
+  } catch (err) { /* reste sur la connexion */ }
+});
+
+async function listerEcoles() {
+  const ul = $("liste"); ul.replaceChildren();
+  try {
+    const s = await getDocs(collection(db, "ecoles"));
+    const ecoles = s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.nom || "").localeCompare(b.nom || "", "fr"));
+    if (!ecoles.length) { const li = document.createElement("li"); li.className = "vide"; li.textContent = "Aucun établissement pour le moment."; ul.append(li); return; }
+    ecoles.forEach((x) => {
+      const li = document.createElement("li");
+      const t = document.createElement("div"); t.className = "titre"; t.textContent = x.nom + (x.ville ? " · " + x.ville : "");
+      const d = document.createElement("div"); d.className = "detail"; d.textContent = "Directeur : " + (x.directeurEmail || "-") + " · Code : " + x.id;
+      li.append(t, d); ul.append(li);
+    });
+  } catch (err) { message("msg", texteErreur(err), "erreur"); }
+}
+
+$("form-ecole").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const nom = $("s-nom").value.trim(), ville = $("s-ville").value.trim();
+  const dNom = $("d-nom").value.trim(), dEmail = $("d-email").value.trim().toLowerCase();
+  if (!nom || !dNom || !dEmail) return message("msg", "Le nom de l’établissement, le nom et l’e-mail du directeur sont obligatoires.", "erreur");
+  $("creer").disabled = true; message("msg", "Création en cours…", "");
+  let etape = "création du compte";
+  try {
+    // 1. Compte du directeur (application secondaire : ta session reste ouverte)
+    const second = initializeApp(config, "secondaire-" + Date.now());
+    const authSec = getAuth(second);
+    const cred = await avecDelai(createUserWithEmailAndPassword(authSec, dEmail, motDePasseAleatoire()), 20, etape);
+    const uid = cred.user.uid;
+    await signOut(authSec);
+
+    // 2. Établissement
+    etape = "création de l’établissement";
+    const ref = await avecDelai(addDoc(collection(db, "ecoles"), {
+      nom, ville, directeurEmail: dEmail, actif: true, creePar: profil.uid, creeLe: serverTimestamp()
+    }), 20, etape);
+
+    // 3. Profil du directeur
+    etape = "enregistrement du profil";
+    await avecDelai(setDoc(doc(db, "utilisateurs", uid), {
+      nom: dNom, email: dEmail, role: "directeur", ecoleId: ref.id, actif: true, creeLe: serverTimestamp()
+    }), 20, etape);
+
+    // 4. E-mail pour choisir son mot de passe
+    etape = "envoi de l’e-mail";
+    await avecDelai(sendPasswordResetEmail(auth, dEmail), 20, etape);
+
+    ["s-nom", "s-ville", "d-nom", "d-email"].forEach((id) => ($(id).value = ""));
+    message("msg", "Établissement créé. Un e-mail a été envoyé à " + dEmail + " pour choisir son mot de passe.", "ok");
+    await listerEcoles();
+  } catch (err) {
+    message("msg", "Échec à l’étape « " + etape + " » : " + texteErreur(err), "erreur");
+  } finally { $("creer").disabled = false; }
+});
+</script>
+</body>
+</html>
